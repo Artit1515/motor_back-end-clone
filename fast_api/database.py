@@ -1,0 +1,22 @@
+from pymongo import MongoClient
+
+class DataBase:
+    def __init__(self) -> None:
+        try:
+            self.uri = "mongodb://mongoadmin:mongoadmin@mongo_db:27017/?authMechanism=DEFAULT"
+            self.client = MongoClient(self.uri, connect=False)
+            print('🚀 Connected to MongoDB...')
+            # Send a ping to confirm a successful connection
+            self.motor_db = self.client["motor"]
+            self.mt_data_coll = self.motor_db["motor_data"]
+            self.mt_info_coll = self.motor_db["motor_info"]
+            self.user_coll = self.motor_db["users"]
+            print("Pinged your deployment. You successfully connected to MongoDB!")
+        except Exception as e:
+            print(e)
+            
+    def collection(self, coll_name: str):
+        collection = self.motor_db[coll_name]
+        return collection
+
+db = DataBase()

@@ -1,0 +1,31 @@
+version: '3.3' 
+services:
+  mongo_db:
+    image: mongo
+    restart: always
+    container_name: mongo-docker
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoadmin 
+      MONGO_INITDB_ROOT_PASSWORD: mongoadmin
+      #MONGODB_AUTH_DATABASE: admin
+    ports:
+      - "27017:27017"
+
+  fast_api:
+    build: ./fast_api
+    command: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    volumes:
+      - ./fast_api/:/app/ 
+    depends_on:
+      - mongo_db
+    ports:
+      - '8000:8000'
+    restart: "no"
+
+  mqtt:
+    build: ./MQTT
+    container_name: mqtt
+    restart: always
+    depends_on:
+      - fast_api
+    command: ["python3", "mqtt.py"]
