@@ -70,7 +70,14 @@ async def login(user: Login):
     hased_passwd = hash_password(user.passwd)
     if hased_passwd != usr["passwd"]:
         raise HTTPException(status_code=401, detail="Incorrect password.")
-    return { "msg": "Logged in successfully." }
+    return { "msg": "Logged in successfully.",
+            "user":{
+                "user_id": usr["user_id"],
+                "username": usr["username"],
+                "role": usr["role"],
+                "motor_owned": usr["motor_owned"]
+            }
+        }
 
 # Adding motor by customer
 @router.post("/add/motor")
