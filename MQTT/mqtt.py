@@ -52,7 +52,7 @@ if __name__=="__main__":
     mqtt_client.username_pw_set(USER, PASSWD)
     mqtt_client.on_message = on_message
     # mqtt_client.enable_logger()
-    sensors = get_all_sensors()
+    # sensors = get_all_sensors()
     mqtt_client.subscribe(MQTT_TOPIC, qos=1)
     # print(sensors)
     # print("Loop started!")

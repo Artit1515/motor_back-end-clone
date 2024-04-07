@@ -1,5 +1,8 @@
 fastapi
 pymongo
 uvicorn
-paho-mqtt
+passlib
+PyJWT
 pydantic
+typing
+pytz

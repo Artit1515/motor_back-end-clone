@@ -1,37 +1,16 @@
 import uuid
 import hashlib
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from datetime import datetime
+from fastapi import APIRouter, HTTPException, Request, Response, Depends
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from datetime import datetime, timedelta
 from database import db
-from devices import motor_data_coll, motor_info_coll
+from devices import motor_info_coll
+from auth import create_access_token, verify_authen, ACCESS_TOKEN_EXPIRE_MINUTES
+from model.devices import Motor_id
+from model.users import Register, Login, User_id
 
-class Register(BaseModel):
-    user_id: str = ""
-    username: str
-    email: str
-    passwd: str
-    role: str = "customer"
-    create_on: datetime = datetime.now()
-    motor_owned: list = []
-    
-class Login(BaseModel):
-    email: str
-    passwd: str
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-class UserConfig(BaseModel):
-    username: str
-    password: str
-    update_on: datetime = datetime.now()
-    
-class AddMotor(BaseModel):
-    user_id: str
-    motor_id: str
-    motor_name: str
-
-class User_id(BaseModel):
-    user_id: str
-    
 router = APIRouter()
 user_coll = db.collection("users")
 
@@ -43,13 +22,33 @@ def hash_password(password: str) -> str:
     hashed_password = hash_obj.hexdigest()
     return hashed_password
 
+def get_user(email: str):
+    user = user_coll.find_one({"email": email})
+    return user
+
+async def authenticate_user(user: Login):
+    usr = get_user(user.email)
+    hashed_passwd = hash_password(user.passwd)
+    if not usr:
+        return False
+    if hashed_passwd != usr["passwd"]:
+        return False
+    return usr
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    user_id = verify_authen(token)
+    user = user_coll.find_one({"user_id": user_id})
+    if not user:
+        return False
+    return user
+
 @router.get("/")
 async def hello_user():
-    return { "msg": "FastAPI user"}
+    return {"msg": "Users Router!"}
 
 @router.post("/register")
 async def register(user: Register):
-    user_exist = user_coll.find_one({"email": user.email})
+    user_exist = get_user(user.email)
     if user_exist:
         raise HTTPException(status_code=400, detail="Email already used.")
     #hash the password
@@ -62,18 +61,17 @@ async def register(user: Register):
     return {"msg": "Registering successful."}
 
 @router.post("/login")
-async def login(user: Login):
-    usr = user_coll.find_one({"email": user.email})
-    if usr is None:
+async def login(res: Response, user: Login):
+    usr = await authenticate_user(user)
+    if not usr:
         raise HTTPException(status_code=404, detail="User not found.")
-    
-    hased_passwd = hash_password(user.passwd)
-    if hased_passwd != usr["passwd"]:
-        raise HTTPException(status_code=401, detail="Incorrect password.")
-    return { "msg": "Logged in successfully.",
+    access_token = create_access_token(data={"id": usr["user_id"]}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    res.set_cookie(key="token", value=access_token)
+    return {"msg": "Logged in successfully.",
             "user":{
                 "user_id": usr["user_id"],
                 "username": usr["username"],
+                "email": usr["email"],
                 "role": usr["role"],
                 "motor_owned": usr["motor_owned"]
             }
@@ -81,38 +79,38 @@ async def login(user: Login):
 
 # Adding motor by customer
 @router.post("/add/motor")
-async def add_motor_owned(info: AddMotor):
+async def add_motor_owned(motor: Motor_id, token: str = Depends(oauth2_scheme)):
     try:
-        user = user_coll.find_one({"user_id": info.user_id})
-        motor = motor_info_coll.find_one({"motor_id": info.motor_id})
-        if (not user) or (not motor):
+        user_id = await verify_authen(token)
+        user = user_coll.find_one({"user_id": user_id})
+        motor = motor_info_coll.find_one({"motor_id": motor.motor_id})
+        if (not user) or (not motor): # If no user or motor
             raise HTTPException(status_code=404, detail="User or Motor not found")
-        
-        motor_info = {
-            "motor_id": info.motor_id,
-            "motor_name": info.motor_name
-        }
+        existing_motor = user_coll.aggregate([
+            {"$match": {"user_id": user_id}},
+            {"$project": {"_id": 0, "motor_owned": 1}},
+            {"$unwind": "$motor_owned"},
+            {"$match": {"motor_owned.motor_id": motor['motor_id']}},
+        ])
+        if list(existing_motor):
+            return {"msg": "This motor_id has already added."}
+        new_motor_own = {"motor_id": motor["motor_id"]}
         user_coll.update_one(
-            {"user_id": info.user_id},
-            {"$push": {"motor_owned": motor_info}}
+            {"user_id": user_id},
+            {"$push": {"motor_owned": new_motor_own}}
         )
-        return {"msg": "Motor added successfully", "motor_id": info.motor_id}
+        return {"msg": "Motor added successfully", "motor_id": motor['motor_id']}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
+# When user added motor then they need to update user data object
 @router.post("/get/user_data")
-async def get_user_data(user_id: User_id):
-    try:
-        user = user_coll.find_one(user_id.model_dump())
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        return {
-            "user_id": user["user_id"],
+async def get_user_data(token: str = Depends(oauth2_scheme)):
+    user_id = await verify_authen(token)
+    user = user_coll.find_one({"user_id": user_id})
+    return {
             "username": user["username"],
+            "email": user["email"],
             "role": user["role"],
             "motor_owned": user["motor_owned"]
         }
-    except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e))
