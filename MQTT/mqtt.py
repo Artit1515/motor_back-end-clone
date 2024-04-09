@@ -20,8 +20,10 @@ def get_all_sensors():
     return data
 
 def on_connect(mqtt_client, userdata, flags, rc, properties=None):
-    print("Connected with result code "+str(rc))
-    mqtt_client.subscribe(MQTT_TOPIC, qos= 1)
+    if rc == 0: # success connect
+        print("Connected with result code "+str(rc))
+        mqtt_client.subscribe(MQTT_TOPIC, qos= 1)
+    
     
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
     print("Subscribed: " + str(mid) + " " + str(granted_qos))

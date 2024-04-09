@@ -5,8 +5,7 @@ FROM python:3.11.5
 WORKDIR /app
 
 # Copy the Python script and requirements file into the container
-COPY mqtt.py /app/
-COPY requirements.txt /app/
+COPY ./requirements.txt /app/requirements.txt
 
 # Install any necessary Python libraries
 # RUN pip install --no-cache-dir -r requirements.txt

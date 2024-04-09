@@ -6,3 +6,4 @@ PyJWT
 pydantic
 typing
 pytz
+python-dotenv
