@@ -109,12 +109,15 @@ async def get_motor_data(motor: Motor_id):
 @router.post("/get/last_data")
 async def get_last_data(motor_id: Motor_id):
     motor = motor_data_coll.find_one(motor_id.model_dump())
-    if motor:
+    if not motor:
+        return HTTPException(status_code=404, detail="motor not found")
+    if motor and len(motor["sensors"]) >= 1:
         return {
             "motor_id": motor["motor_id"],
             "msg": motor["sensors"][-1]
         }
-    return HTTPException(status_code=404, detail="motor not found")
+    else:
+        pass
 
 @router.post("/get/motor_temp")
 async def get_motor_temp(motor_id: Motor_id):
@@ -122,7 +125,13 @@ async def get_motor_temp(motor_id: Motor_id):
     if motor:
         return {"temperature": motor["sensors"][-1]["temperature"]}
 
-@router.get("/records")
-async def get_records():
-    motors = [data for data in motor_info_coll.find({}, {"_id": 0})]
-    return {"msg": motors}
+@router.post("/records")
+async def get_records(motor: Motor_id):
+    try:
+        motor = motor_info_coll.find_one(motor.model_dump())
+        if motor:
+            return {"data": motor["records"]}
+        # motors = [data for data in motor_info_coll.find({}, {"_id": 0})]
+        # return {"msg": motors}
+    except Exception as e:
+        return {"error": e}

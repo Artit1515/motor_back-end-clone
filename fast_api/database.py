@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+import gridfs
 
 class DataBase:
     def __init__(self) -> None:
@@ -18,5 +19,8 @@ class DataBase:
     def collection(self, coll_name: str):
         collection = self.motor_db[coll_name]
         return collection
+    
+    def get_db_fs(self):
+        return self.client.gridfs_example
 
 db = DataBase()

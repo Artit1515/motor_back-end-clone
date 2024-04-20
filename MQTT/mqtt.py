@@ -13,7 +13,6 @@ PASSWD = "Peerapat1/"
 # FastAPI Configuration
 FASTAPI_ENDPOINT = "http://127.0.0.1:8000/devices/sensor/store"
 
-
 def get_all_sensors():
     sensors = requests.get("http://127.0.0.1:8000/get_all_sensors")
     data = sensors.json()

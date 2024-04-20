@@ -1,18 +1,20 @@
 import uuid
 import hashlib
-from fastapi import APIRouter, HTTPException, Request, Response, Depends
+from fastapi import APIRouter, HTTPException, Response, Depends, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
 from database import db
 from router.devices import motor_info_coll
 from auth import Auth, ACCESS_TOKEN_EXPIRE_MINUTES
 from model.devices import Motor_id
-from model.users import Register, Login, User_id
+from model.users import Register, Login
+from gridfs import GridFS
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 router = APIRouter()
 user_coll = db.collection("users")
+fs = GridFS(db.get_db_fs())
 
 # Function to hash the password
 def hash_password(password: str) -> str:
@@ -48,17 +50,20 @@ async def hello_user():
 
 @router.post("/register")
 async def register(user: Register):
-    user_exist = get_user(user.email)
-    if user_exist:
-        raise HTTPException(status_code=400, detail="Email already used.")
-    #hash the password
-    hashed_passwd = hash_password(user.passwd)
-    user.passwd = hashed_passwd
-    #assign user_id
-    user_id = str(uuid.uuid4())
-    user.user_id = user_id
-    user_coll.insert_one(user.model_dump())
-    return {"msg": "Registering successful."}
+    try:
+        user_exist = get_user(user.email)
+        if user_exist:
+            raise HTTPException(status_code=400, detail="Email already used.")
+        #hash the password
+        hashed_passwd = hash_password(user.passwd)
+        user.passwd = hashed_passwd
+        #assign user_id
+        user_id = str(uuid.uuid4())
+        user.user_id = user_id
+        user_coll.insert_one(user.model_dump())
+        return {"msg": "Registering successful."}
+    except Exception as e:
+        return {"msg": e}
 
 @router.post("/login")
 async def login(res: Response, user: Login):
@@ -83,9 +88,9 @@ async def is_authen(token: str = Depends(oauth2_scheme)):
         user = user_coll.find_one({"user_id": user_id})
         if user:
             return {"isAuthen": True}
-    except Exception as e:
         return {"isAuthen": False}
-    
+    except Exception as e:
+        raise HTTPException(status_code=500)
 
 # Adding motor by customer
 @router.post("/add/motor")
@@ -116,11 +121,14 @@ async def add_motor_owned(motor: Motor_id, token: str = Depends(oauth2_scheme)):
 # When user added motor then they need to update user data object
 @router.post("/get/user_data")
 async def get_user_data(token: str = Depends(oauth2_scheme)):
-    user_id = await Auth.verify_authen(token)
-    user = user_coll.find_one({"user_id": user_id})
-    return {
-            "username": user["username"],
-            "email": user["email"],
-            "role": user["role"],
-            "motor_owned": user["motor_owned"]
-        }
+    try:
+        user_id = await Auth.verify_authen(token)
+        user = user_coll.find_one({"user_id": user_id})
+        return {
+                "username": user["username"],
+                "email": user["email"],
+                "role": user["role"],
+                "motor_owned": user["motor_owned"]
+            }
+    except Exception as e:
+        return {"msg": e}
