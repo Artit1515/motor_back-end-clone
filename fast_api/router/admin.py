@@ -1,3 +1,4 @@
+import pymongo
 from fastapi import APIRouter, HTTPException
 from router.users import user_coll
 from router.devices import motor_info_coll
@@ -10,6 +11,9 @@ class Credential(BaseModel):
     user_id: str
     motor_id: str
 
+class User_Id(BaseModel):
+    user_id: str
+
 @router.get("/get_users")
 async def get_all_users():
     try:
@@ -19,6 +23,21 @@ async def get_all_users():
             return {"users": all_users}
     except Exception:
         raise HTTPException(status_code=404, detail="No any user.")
+    
+@router.post("/get/user_info")
+async def get_user_by_id(usr: User_Id):
+    try:
+        user = user_coll.find_one({"user_id": usr.user_id})
+        if user :
+            return {"user":{
+                "user_id": user["user_id"],
+                "username": user["username"],
+                "email": user["email"],
+                "role": user["role"],
+                "motor_owned": user["motor_owned"]
+            }}
+    except Exception as e :
+        return e
     
 @router.get("/get_motors")
 async def get_all_motors():

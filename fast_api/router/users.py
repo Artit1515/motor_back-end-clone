@@ -1,13 +1,13 @@
 import uuid
 import hashlib
-from fastapi import APIRouter, HTTPException, Response, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, Response, Depends, UploadFile, Cookie
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
 from database import db
 from router.devices import motor_info_coll
 from auth import Auth, ACCESS_TOKEN_EXPIRE_MINUTES
 from model.devices import Motor_id
-from model.users import Register, Login
+from model.users import Register, Login, Username
 from gridfs import GridFS
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -71,7 +71,8 @@ async def login(res: Response, user: Login):
     if not usr:
         raise HTTPException(status_code=404, detail="User not found.")
     access_token = await Auth.create_access_token(data={"id": usr["user_id"]}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    res.set_cookie(key="token", value=access_token)
+    # res.set_cookie(key="token", value=access_token)
+    res.set_cookie(key="token", value=access_token, httponly=True)
     return {"msg": "Logged in successfully.",
             "user":{
                 "user_id": usr["user_id"],
@@ -79,7 +80,8 @@ async def login(res: Response, user: Login):
                 "email": usr["email"],
                 "role": usr["role"],
                 "motor_owned": usr["motor_owned"]
-            }
+            },
+            "token": access_token
         }
 @router.get("/is_authen")
 async def is_authen(token: str = Depends(oauth2_scheme)):
@@ -114,7 +116,16 @@ async def add_motor_owned(motor: Motor_id, token: str = Depends(oauth2_scheme)):
             {"user_id": user_id},
             {"$push": {"motor_owned": new_motor_own}}
         )
-        return {"msg": "Motor added successfully", "motor_id": motor['motor_id']}
+        return {"msg": "Motor added successfully",
+                "motor_id": motor['motor_id'],
+                "user": {
+                    "user_id": user["user_id"],
+                    "username": user["username"],
+                    "email": user["email"],
+                    "role": user["role"],
+                    "motor_owned": user["motor_owned"]
+                }
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -125,10 +136,22 @@ async def get_user_data(token: str = Depends(oauth2_scheme)):
         user_id = await Auth.verify_authen(token)
         user = user_coll.find_one({"user_id": user_id})
         return {
-                "username": user["username"],
-                "email": user["email"],
-                "role": user["role"],
-                "motor_owned": user["motor_owned"]
-            }
+            "username": user["username"],
+            "email": user["email"],
+            "role": user["role"],
+            "motor_owned": user["motor_owned"]
+        }
+    except Exception as e:
+        return {"msg": e}
+    
+# User edit their username
+@router.post("/edit/username")
+async def edit_username(usr: Username, token: str = Depends(oauth2_scheme)):
+    try:
+        user_id = await Auth.verify_authen(token)
+        user = user_coll.find_one({"user_id": user_id})
+        if user :
+            user_coll.update_one({"user_id": user_id}, {"$set":{"username": usr.username}})
+            return {"msg": "Update username success!"}
     except Exception as e:
         return {"msg": e}

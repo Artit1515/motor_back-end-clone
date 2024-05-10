@@ -19,9 +19,9 @@ def get_all_sensors():
     return data
 
 def on_connect(mqtt_client, userdata, flags, rc, properties=None):
-    if rc == 0: # success connect
-        print("Connected with result code "+str(rc))
-        mqtt_client.subscribe(MQTT_TOPIC, qos= 1)
+    # if rc == 0: # success connect
+    #     print("Connected with result code "+str(rc))
+    mqtt_client.subscribe(MQTT_TOPIC, qos= 1)
     
     
 def on_subscribe(client, userdata, mid, granted_qos, properties=None):
@@ -52,7 +52,7 @@ if __name__=="__main__":
     mqtt_client.tls_set(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
     mqtt_client.username_pw_set(USER, PASSWD)
     mqtt_client.on_message = on_message
-    # mqtt_client.enable_logger()
+    mqtt_client.enable_logger()
     # sensors = get_all_sensors()
     mqtt_client.subscribe(MQTT_TOPIC, qos=1)
     # print(sensors)

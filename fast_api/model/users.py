@@ -17,3 +17,6 @@ class Register(BaseModel):
 class Login(BaseModel):
     email: str
     passwd: str
+
+class Username(BaseModel):
+    username: str

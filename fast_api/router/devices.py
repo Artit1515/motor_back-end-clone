@@ -81,7 +81,7 @@ async def store_data(mt_data: IoT_Recv):
     if motor:
         ft = {"motor_id": mt_data.motor_id}
         update = {"$push": {"sensors": sensor}}
-        if len(motor['sensors']) == 10: # every 1 hr or 1800 records
+        if len(motor['sensors']) == 100: # every 1 hr or 1800 records // 100 doc compress -> 1 doc
             migrate = await migrate_data(ft)
             return migrate
         else:
@@ -114,7 +114,7 @@ async def get_last_data(motor_id: Motor_id):
     if motor and len(motor["sensors"]) >= 1:
         return {
             "motor_id": motor["motor_id"],
-            "msg": motor["sensors"][-1]
+            "data": motor["sensors"][-1]
         }
     else:
         pass
