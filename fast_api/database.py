@@ -1,10 +1,14 @@
 from pymongo import MongoClient
+import os
+from dotenv import load_dotenv
 import gridfs
 
 class DataBase:
     def __init__(self) -> None:
         try:
-            self.uri = "mongodb://mongoadmin:mongoadmin@mongo_db:27017/?authMechanism=DEFAULT"
+            load_dotenv()
+            # self.uri = "mongodb://mongoadmin:mongoadmin@mongo_db:27017/?authMechanism=DEFAULT"
+            self.uri = os.environ.get("MONGO_CONNECTION_STRING")
             self.client = MongoClient(self.uri, connect=False)
             print('🚀 Connected to MongoDB...')
             # Send a ping to confirm a successful connection
